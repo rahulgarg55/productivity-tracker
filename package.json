@@ -1,0 +1,20 @@
+{
+  "name": "productivity-tracker",
+  "version": "2.1.0",
+  "private": true,
+  "description": "ProductivityFlow Enterprise Activity Tracking, Telemetry & Focus Analytics",
+  "author": {
+    "name": "Rahul Garg",
+    "url": "https://github.com/rahulgarg55"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rahulgarg55/productivity-tracker.git"
+  },
+  "scripts": {
+    "desktop:build": "npm run --prefix desktop build",
+    "desktop:start": "npm run --prefix desktop start",
+    "desktop:dev": "npm run --prefix desktop dev",
+    "server:start": "python -m uvicorn environment.app.main:app --port 8000 --reload"
+  }
+}

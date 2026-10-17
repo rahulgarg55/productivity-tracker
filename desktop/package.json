@@ -1,0 +1,31 @@
+{
+  "name": "@productivity-tracker/desktop",
+  "version": "1.0.0",
+  "description": "ProductivityFlow Enterprise Desktop Agent & Focus Telemetry Companion",
+  "main": "dist/main/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-assets.js",
+    "start": "electron .",
+    "dev": "npm run build && electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.7.3"
+  },
+  "build": {
+    "appId": "com.northstardigital.productivityflow",
+    "productName": "ProductivityFlow Desktop Agent",
+    "directories": {
+      "output": "out"
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    }
+  }
+}

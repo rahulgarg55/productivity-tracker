@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProductivityFlow Desktop Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(17, 24, 39, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-hover: rgba(255, 255, 255, 0.12);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent: #06b6d4;
+      --accent-glow: rgba(6, 182, 212, 0.25);
+      --productive: #10b981;
+      --distracted: #ef4444;
+      --idle: #f59e0b;
+      --font-heading: 'Space Grotesk', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --card-bg: rgba(255, 255, 255, 0.9);
+      --card-border: rgba(0, 0, 0, 0.08);
+      --card-hover: rgba(0, 0, 0, 0.12);
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --accent: #0284c7;
+      --accent-glow: rgba(2, 132, 199, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      overflow-x: hidden;
+      overflow-y: auto;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Bar */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(10, 15, 29, 0.6);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #06b6d4, #3b82f6);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+    }
+
+    .brand-title {
+      font-family: var(--font-heading);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-sub {
+      font-size: 9px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hotkey-pill {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      padding: 3px 6px;
+      border-radius: 4px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--productive);
+      box-shadow: 0 0 8px var(--productive);
+      display: inline-block;
+    }
+
+    .btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      border: none;
+      outline: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    /* Main Container */
+    .app-content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Focus Gauge Card */
+    .gauge-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .gauge-card::before {
+      content: "";
+      position: absolute;
+      top: -50px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 140px;
+      height: 140px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .gauge-wrapper {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      margin: 10px 0;
+    }
+
+    .gauge-svg {
+      transform: rotate(-90deg);
+      width: 100%;
+      height: 100%;
+    }
+
+    .gauge-circle-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.06);
+      stroke-width: 10;
+    }
+
+    .gauge-circle-val {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 10;
+      stroke-linecap: round;
+      stroke-dasharray: 408;
+      stroke-dashoffset: 40;
+      transition: stroke-dashoffset 0.8s ease, stroke 0.5s ease;
+    }
+
+    .gauge-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .gauge-percent {
+      font-family: var(--font-heading);
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .gauge-sublabel {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .session-clock {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 600;
+      margin: 8px 0;
+      color: var(--text);
+    }
+
+    .session-controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .btn-action {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      transition: all 0.15s;
+    }
+
+    .btn-action.active {
+      background: var(--productive);
+      color: white;
+      border-color: var(--productive);
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    }
+
+    /* Metric Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .stat-time {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    /* Active Window Card */
+    .active-window-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .app-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .app-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .app-details {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .app-name {
+      font-size: 12px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+
+    .window-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    .badge-category {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+    }
+
+    .badge-productive { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-distracted { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-idle { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+    /* Recent Telemetry Stream */
+    .stream-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .stream-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .stream-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      font-size: 11px;
+    }
+
+    .stream-app {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      max-width: 140px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stream-time {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* Privacy & Compliance Section */
+    .privacy-card {
+      background: rgba(6, 182, 212, 0.05);
+      border: 1px solid rgba(6, 182, 212, 0.15);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .privacy-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .privacy-notice {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .privacy-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    /* User Profile Card */
+    .profile-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #06b6d4, #6366f1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: white;
+      font-size: 13px;
+    }
+
+    .profile-details {
+      display: flex;
+      flex-direction: column;
+      font-size: 11px;
+      overflow: hidden;
+    }
+
+    .profile-name {
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .profile-sub {
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header>
+    <div class="brand-group">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-title">
+        ProductivityFlow
+        <span class="badge-sub">Agent v2.1</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="hotkey-pill">Ctrl+Shift+P</div>
+      <button class="btn btn-secondary" onclick="toggleTheme()">☀️ / 🌙</button>
+    </div>
+  </header>
+
+  <div class="app-content">
+
+    <!-- Focus Gauge Card -->
+    <div class="gauge-card">
+      <div class="gauge-wrapper">
+        <svg class="gauge-svg" viewBox="0 0 150 150">
+          <circle class="gauge-circle-bg" cx="75" cy="75" r="65"></circle>
+          <circle id="gaugeArc" class="gauge-circle-val" cx="75" cy="75" r="65"></circle>
+        </svg>
+        <div class="gauge-text">
+          <span class="gauge-percent" id="focusScoreText">89%</span>
+          <span class="gauge-sublabel" id="focusModeLabel">Deep Work</span>
+        </div>
+      </div>
+
+      <div class="session-clock" id="sessionClock">00:00:00</div>
+
+      <div class="session-controls">
+        <button class="btn-action active" id="btnClockIn" onclick="handleClockIn()">▶ Clock In</button>
+        <button class="btn-action" id="btnPause" onclick="handlePause()">⏸ Pause</button>
+        <button class="btn-action" id="btnClockOut" onclick="handleClockOut()">⏹ End</button>
+      </div>
+    </div>
+
+    <!-- Stats Breakdown -->
+    <div class="stats-grid">
+      <div class="stat-pill">
+        <span class="stat-label">Productive</span>
+        <span class="stat-time" style="color: var(--productive)" id="prodTime">40m 10s</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Distracted</span>
+        <span class="stat-time" style="color: var(--distracted)" id="distTime">5m 00s</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Idle</span>
+        <span class="stat-time" style="color: var(--idle)" id="idleTime">3m 00s</span>
+      </div>
+    </div>
+
+    <!-- Active Window Telemetry -->
+    <div class="active-window-card">
+      <div class="card-header-row">
+        <span class="card-title">Foreground Window Telemetry</span>
+        <span class="badge-category badge-productive" id="currentCategoryBadge">PRODUCTIVE</span>
+      </div>
+      <div class="app-info">
+        <div class="app-icon" id="appIcon">💻</div>
+        <div class="app-details">
+          <div class="app-name" id="currentAppName">Code.exe</div>
+          <div class="window-title" id="currentWindowTitle">VS Code — bug-tracker/desktop/src/main/index.ts</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Activity Telemetry Feed -->
+    <div class="stream-card">
+      <div class="card-header-row">
+        <span class="card-title">Live Activity Stream (FastAPI Sync)</span>
+        <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);" id="serverSyncStatus">Connected</span>
+      </div>
+      <div class="stream-list" id="activityStream">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- Privacy & GDPR Article 15/17 Compliance -->
+    <div class="privacy-card">
+      <div class="privacy-title">
+        <span>🛡️ GDPR & Telemetry Privacy Governance</span>
+      </div>
+      <div class="privacy-notice">
+        Full system tray visibility. No keylogging or audio recording. Compliant with GDPR Article 6(1)(f) and Article 15/17.
+      </div>
+      <div class="privacy-actions">
+        <button class="btn btn-secondary" onclick="exportData()" style="flex: 1; font-size: 10px;">
+          📥 Export Telemetry (JSON)
+        </button>
+        <button class="btn btn-secondary" onclick="eraseData()" style="flex: 1; font-size: 10px; color: var(--distracted)">
+          🗑️ Erase Past Data
+        </button>
+      </div>
+    </div>
+
+    <!-- Profile Footer -->
+    <div class="profile-card">
+      <div class="avatar">RG</div>
+      <div class="profile-details">
+        <span class="profile-name">Rahul Garg</span>
+        <span class="profile-sub">rahul@northstardigital.com • Systems Architect</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let isDarkMode = true;
+    const CIRCLE_CIRCUMFERENCE = 408;
+
+    async function initApp() {
+      if (window.productivityAPI) {
+        const status = await window.productivityAPI.getStatus();
+        updateDisplay(status);
+
+        window.productivityAPI.onTelemetryUpdate((newStatus) => {
+          updateDisplay(newStatus);
+        });
+
+        loadRecentActivities();
+        setInterval(loadRecentActivities, 15000);
+      }
+    }
+
+    function updateDisplay(status) {
+      // Focus Score Arc
+      const score = status.focusScore;
+      document.getElementById('focusScoreText').innerText = `${score}%`;
+      const arc = document.getElementById('gaugeArc');
+      const offset = CIRCLE_CIRCUMFERENCE - (CIRCLE_CIRCUMFERENCE * (score / 100));
+      arc.style.strokeDashoffset = offset;
+
+      if (score >= 75) {
+        arc.style.stroke = 'var(--productive)';
+        document.getElementById('focusModeLabel').innerText = 'Deep Work';
+      } else if (score >= 50) {
+        arc.style.stroke = 'var(--accent)';
+        document.getElementById('focusModeLabel').innerText = 'Moderate Focus';
+      } else {
+        arc.style.stroke = 'var(--distracted)';
+        document.getElementById('focusModeLabel').innerText = 'Fragmented';
+      }
+
+      // Times
+      document.getElementById('prodTime').innerText = formatSeconds(status.productiveSeconds);
+      document.getElementById('distTime').innerText = formatSeconds(status.distractedSeconds);
+      document.getElementById('idleTime').innerText = formatSeconds(status.idleSeconds);
+      document.getElementById('sessionClock').innerText = formatClock(status.sessionDurationSeconds);
+
+      // Active Window
+      document.getElementById('currentAppName').innerText = status.currentApp;
+      document.getElementById('currentWindowTitle').innerText = status.currentTitle;
+
+      const badge = document.getElementById('currentCategoryBadge');
+      badge.className = `badge-category badge-${status.category}`;
+      badge.innerText = status.category.toUpperCase();
+
+      // Controls
+      const btnIn = document.getElementById('btnClockIn');
+      const btnP = document.getElementById('btnPause');
+      const btnOut = document.getElementById('btnClockOut');
+      btnIn.classList.toggle('active', status.state === 'RUNNING');
+      btnP.classList.toggle('active', status.state === 'PAUSED');
+      btnOut.classList.toggle('active', status.state === 'STOPPED');
+
+      // Backend status
+      document.getElementById('serverSyncStatus').innerText = status.backendOnline ?
+        `Server Connected (${status.totalServerLogs} Syncs)` : 'Server Offline (Local Buffer)';
+    }
+
+    async function loadRecentActivities() {
+      if (window.productivityAPI) {
+        const res = await window.productivityAPI.getActivities({ limit: 6 });
+        const list = document.getElementById('activityStream');
+        if (res && res.data && res.data.length > 0) {
+          list.innerHTML = res.data.map(item => `
+            <div class="stream-item">
+              <span class="stream-app">${escapeHtml(item.app_name)}</span>
+              <span class="badge-category badge-${item.status}">${item.status}</span>
+              <span class="stream-time">${formatTime(item.timestamp)}</span>
+            </div>
+          `).join('');
+        } else {
+          list.innerHTML = `
+            <div class="stream-item">
+              <span class="stream-app">Code.exe</span>
+              <span class="badge-category badge-productive">productive</span>
+              <span class="stream-time">Just now</span>
+            </div>
+            <div class="stream-item">
+              <span class="stream-app">chrome.exe</span>
+              <span class="badge-category badge-productive">productive</span>
+              <span class="stream-time">2m ago</span>
+            </div>
+          `;
+        }
+      }
+    }
+
+    async function handleClockIn() {
+      if (window.productivityAPI) {
+        const res = await window.productivityAPI.clockIn();
+        updateDisplay(res);
+      }
+    }
+
+    async function handlePause() {
+      if (window.productivityAPI) {
+        const res = await window.productivityAPI.pause();
+        updateDisplay(res);
+      }
+    }
+
+    async function handleClockOut() {
+      if (window.productivityAPI) {
+        const res = await window.productivityAPI.clockOut();
+        updateDisplay(res);
+      }
+    }
+
+    async function exportData() {
+      if (window.productivityAPI) {
+        const data = await window.productivityAPI.exportTelemetry();
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `productivity-telemetry-export-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    async function eraseData() {
+      if (confirm('Are you sure you want to erase telemetry logs older than 30 days under GDPR Article 17?')) {
+        if (window.productivityAPI) {
+          const res = await window.productivityAPI.eraseTelemetry(30);
+          alert(res.message || 'Telemetry successfully erased.');
+          loadRecentActivities();
+        }
+      }
+    }
+
+    function formatSeconds(secs) {
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      if (m > 60) {
+        const h = Math.floor(m / 60);
+        const remM = m % 60;
+        return `${h}h ${remM}m`;
+      }
+      return `${m}m ${s}s`;
+    }
+
+    function formatClock(totalSecs) {
+      const h = String(Math.floor(totalSecs / 3600)).padStart(2, '0');
+      const m = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
+      const s = String(totalSecs % 60).padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    }
+
+    function formatTime(isoStr) {
+      if (!isoStr) return 'Just now';
+      const d = new Date(isoStr);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function toggleTheme() {
+      isDarkMode = !isDarkMode;
+      document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
