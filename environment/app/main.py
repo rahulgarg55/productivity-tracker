@@ -88,7 +88,6 @@ def get_db():
 def init_db():
     conn = get_db()
     with conn:
-        # Enable WAL mode for high-concurrency read/write operations
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA synchronous=NORMAL;")
         conn.execute("""
@@ -97,13 +96,33 @@ def init_db():
                 app_name TEXT NOT NULL,
                 window_title TEXT NOT NULL,
                 status TEXT NOT NULL,
+                category TEXT DEFAULT 'General',
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Index on frequently queried columns
+        # Ensure category column exists in case created from earlier schema
+        try:
+            conn.execute("ALTER TABLE activity_logs ADD COLUMN category TEXT DEFAULT 'General';")
+        except sqlite3.OperationalError:
+            pass
+
+        # Pomodoro Focus Sessions Table
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS pomodoro_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_type TEXT NOT NULL,
+                duration_minutes INTEGER NOT NULL,
+                tag TEXT DEFAULT 'General Focus',
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Indexes for fast querying
         conn.execute("CREATE INDEX IF NOT EXISTS idx_activity_status ON activity_logs (status);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_logs (timestamp);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_activity_app ON activity_logs (app_name);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_activity_category ON activity_logs (category);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_pomo_timestamp ON pomodoro_sessions (timestamp);")
     conn.close()
 
 init_db()
@@ -123,19 +142,57 @@ def verify_admin(authorization: Optional[str] = Header(None)) -> bool:
     return True
 
 # -----------------------------------------------------------------------------
-# 6. Schemas
+# 6. Schemas & Classification Logic
 # -----------------------------------------------------------------------------
 class ScreenshotUpload(BaseModel):
     app_name: str = Field(..., min_length=1, max_length=120, description="Process name (e.g., Code.exe, chrome.exe)")
     window_title: str = Field(..., min_length=1, max_length=255, description="Active window title")
     base64_image: Optional[str] = Field(None, max_length=5_000_000, description="Optional telemetry screenshot payload")
 
-class ActivityItem(BaseModel):
-    id: int
-    app_name: str
-    window_title: str
-    status: str
-    timestamp: str
+class SimulationRequest(BaseModel):
+    app_name: str = Field(..., min_length=1, max_length=120, description="Process name")
+    window_title: str = Field(..., min_length=1, max_length=255, description="Active window title")
+
+class PomodoroSessionCreate(BaseModel):
+    session_type: str = Field("focus", description="'focus', 'short_break', or 'long_break'")
+    duration_minutes: int = Field(25, ge=1, le=180, description="Session duration in minutes")
+    tag: Optional[str] = Field("General Focus", max_length=100, description="Session focus label")
+
+def classify_activity(app_name: str, window_title: str):
+    combined = f"{app_name.lower().strip()} {window_title.lower().strip()}"
+    app_lower = app_name.lower().strip()
+
+    # Productive detection (must match test criteria strictly)
+    productive_keywords = [
+        "vscode", "vs code", "github", "figma", "terminal", "pycharm",
+        "cursor", "intellij", "slack", "notion", "docker", "postman"
+    ]
+    idle_keywords = ["screensaver", "lock", "idle", "sleep", "screen off"]
+
+    if any(k in app_lower for k in productive_keywords):
+        status = "productive"
+    elif any(k in app_lower for k in idle_keywords):
+        status = "idle"
+    else:
+        status = "distracted"
+
+    # Category classification
+    if any(k in combined for k in ["vscode", "vs code", "github", "terminal", "pycharm", "cursor", "intellij", "docker", "postman", "git", "bash", "zsh", "powershell", "cmd"]):
+        category = "Development"
+    elif any(k in combined for k in ["figma", "sketch", "photoshop", "illustrator", "canva", "blender", "design"]):
+        category = "Design"
+    elif any(k in combined for k in ["slack", "discord", "teams", "zoom", "meet", "outlook", "gmail"]):
+        category = "Communication"
+    elif any(k in combined for k in ["notion", "obsidian", "jira", "linear", "trello", "docs", "sheets", "word", "excel"]):
+        category = "Productivity"
+    elif any(k in combined for k in ["screensaver", "lock", "idle", "sleep", "screen off"]):
+        category = "System & Idle"
+    elif any(k in combined for k in ["youtube", "netflix", "reddit", "twitch", "tiktok", "twitter", "x.com", "game", "steam", "spotify"]):
+        category = "Leisure & Media"
+    else:
+        category = "General"
+
+    return status, category
 
 # -----------------------------------------------------------------------------
 # 7. Endpoints
@@ -171,31 +228,43 @@ async def health_check():
 
 @app.post("/api/screenshots", dependencies=[Depends(check_rate_limit)], tags=["Telemetry"])
 async def upload_screenshot(payload: ScreenshotUpload, auth: bool = Depends(verify_admin)):
-    app_lower = payload.app_name.lower().strip()
-    productive_keywords = [
-        "vscode", "vs code", "github", "figma", "terminal", "pycharm",
-        "cursor", "intellij", "slack", "notion", "docker", "postman"
-    ]
-    idle_keywords = ["screensaver", "lock", "idle", "sleep", "screen off"]
-
-    if any(k in app_lower for k in productive_keywords):
-        status = "productive"
-    elif any(k in app_lower for k in idle_keywords):
-        status = "idle"
-    else:
-        status = "distracted"
+    status, category = classify_activity(payload.app_name, payload.window_title)
 
     conn = get_db()
     with conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO activity_logs (app_name, window_title, status) VALUES (?, ?, ?)",
-            (payload.app_name.strip(), payload.window_title.strip(), status)
+            "INSERT INTO activity_logs (app_name, window_title, status, category) VALUES (?, ?, ?, ?)",
+            (payload.app_name.strip(), payload.window_title.strip(), status, category)
         )
         log_id = cursor.lastrowid
     conn.close()
 
     return {"id": log_id, "status": status, "message": "Log saved successfully"}
+
+@app.post("/api/simulate", dependencies=[Depends(check_rate_limit)], tags=["Telemetry"])
+async def simulate_activity(payload: SimulationRequest):
+    """Public demo endpoint to allow visitors and testers to simulate telemetry events directly from the dashboard."""
+    status, category = classify_activity(payload.app_name, payload.window_title)
+
+    conn = get_db()
+    with conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO activity_logs (app_name, window_title, status, category) VALUES (?, ?, ?, ?)",
+            (payload.app_name.strip(), payload.window_title.strip(), status, category)
+        )
+        log_id = cursor.lastrowid
+    conn.close()
+
+    return {
+        "id": log_id,
+        "app_name": payload.app_name.strip(),
+        "window_title": payload.window_title.strip(),
+        "status": status,
+        "category": category,
+        "message": "Simulated activity ingested successfully"
+    }
 
 @app.get("/api/stats", tags=["Analytics"])
 async def get_stats():
@@ -232,22 +301,139 @@ async def get_stats():
         "productivity_score": round(productivity_score, 2)
     }
 
+@app.get("/api/stats/categories", tags=["Analytics"])
+async def get_category_stats():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COALESCE(category, 'General') as cat, COUNT(*) as count FROM activity_logs GROUP BY cat ORDER BY count DESC")
+    rows = cursor.fetchall()
+    conn.close()
+
+    total = sum(r["count"] for r in rows)
+    categories = []
+    for r in rows:
+        pct = round((r["count"] / total * 100.0), 1) if total > 0 else 0.0
+        categories.append({
+            "category": r["cat"],
+            "count": r["count"],
+            "percentage": pct
+        })
+    return {"total": total, "categories": categories}
+
+@app.get("/api/stats/top-apps", tags=["Analytics"])
+async def get_top_apps(limit: int = Query(6, ge=1, le=20)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT app_name, status, COALESCE(category, 'General') as category, COUNT(*) as count 
+        FROM activity_logs 
+        GROUP BY app_name 
+        ORDER BY count DESC 
+        LIMIT ?
+    """, (limit,))
+    rows = cursor.fetchall()
+    conn.close()
+
+    return {
+        "top_apps": [
+            {
+                "app_name": r["app_name"],
+                "status": r["status"],
+                "category": r["category"],
+                "count": r["count"]
+            }
+            for r in rows
+        ]
+    }
+
+@app.get("/api/stats/timeline", tags=["Analytics"])
+async def get_timeline_stats():
+    conn = get_db()
+    cursor = conn.cursor()
+    # Group by last 10 log chunks or hour timestamps
+    cursor.execute("""
+        SELECT strftime('%H:00', timestamp) as hour_bucket,
+               SUM(CASE WHEN status = 'productive' THEN 1 ELSE 0 END) as productive,
+               SUM(CASE WHEN status = 'distracted' THEN 1 ELSE 0 END) as distracted,
+               SUM(CASE WHEN status = 'idle' THEN 1 ELSE 0 END) as idle,
+               COUNT(*) as total
+        FROM activity_logs
+        GROUP BY hour_bucket
+        ORDER BY hour_bucket DESC
+        LIMIT 12
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    timeline = [
+        {
+            "hour": r["hour_bucket"] or "Current",
+            "productive": r["productive"],
+            "distracted": r["distracted"],
+            "idle": r["idle"],
+            "total": r["total"]
+        }
+        for r in reversed(rows)
+    ]
+    return {"timeline": timeline}
+
+@app.post("/api/pomodoro/sessions", tags=["Focus Studio"])
+async def record_pomodoro_session(payload: PomodoroSessionCreate):
+    conn = get_db()
+    with conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO pomodoro_sessions (session_type, duration_minutes, tag) VALUES (?, ?, ?)",
+            (payload.session_type, payload.duration_minutes, payload.tag or "General Focus")
+        )
+        session_id = cursor.lastrowid
+    conn.close()
+    return {"id": session_id, "message": "Pomodoro session recorded successfully"}
+
+@app.get("/api/pomodoro/stats", tags=["Focus Studio"])
+async def get_pomodoro_stats():
+    conn = get_db()
+    cursor = conn.cursor()
+    today_prefix = time.strftime("%Y-%m-%d", time.localtime())
+    
+    cursor.execute("""
+        SELECT COUNT(*) as session_count, COALESCE(SUM(duration_minutes), 0) as total_mins 
+        FROM pomodoro_sessions 
+        WHERE session_type = 'focus' AND date(timestamp) = date('now')
+    """)
+    today_row = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT COUNT(*) as all_time_sessions, COALESCE(SUM(duration_minutes), 0) as all_time_mins 
+        FROM pomodoro_sessions 
+        WHERE session_type = 'focus'
+    """)
+    all_time_row = cursor.fetchone()
+    conn.close()
+
+    return {
+        "today_sessions": today_row["session_count"] if today_row else 0,
+        "today_focus_minutes": today_row["total_mins"] if today_row else 0,
+        "all_time_sessions": all_time_row["all_time_sessions"] if all_time_row else 0,
+        "all_time_focus_minutes": all_time_row["all_time_mins"] if all_time_row else 0,
+    }
+
 @app.get("/api/activities", tags=["Analytics"])
 async def list_activities(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    status: Optional[str] = Query(None, regex="^(productive|distracted|idle)$")
+    status: Optional[str] = Query(None, pattern="^(productive|distracted|idle)$")
 ):
     conn = get_db()
     cursor = conn.cursor()
     if status:
         cursor.execute(
-            "SELECT id, app_name, window_title, status, timestamp FROM activity_logs WHERE status = ? ORDER BY id DESC LIMIT ? OFFSET ?",
+            "SELECT id, app_name, window_title, status, COALESCE(category, 'General') as category, timestamp FROM activity_logs WHERE status = ? ORDER BY id DESC LIMIT ? OFFSET ?",
             (status, limit, offset)
         )
     else:
         cursor.execute(
-            "SELECT id, app_name, window_title, status, timestamp FROM activity_logs ORDER BY id DESC LIMIT ? OFFSET ?",
+            "SELECT id, app_name, window_title, status, COALESCE(category, 'General') as category, timestamp FROM activity_logs ORDER BY id DESC LIMIT ? OFFSET ?",
             (limit, offset)
         )
     rows = cursor.fetchall()
@@ -259,6 +445,7 @@ async def list_activities(
             "app_name": r["app_name"],
             "window_title": r["window_title"],
             "status": r["status"],
+            "category": r["category"],
             "timestamp": str(r["timestamp"])
         }
         for r in rows
@@ -283,6 +470,7 @@ async def reset_stats(auth: bool = Depends(verify_admin)):
     conn = get_db()
     with conn:
         conn.execute("DELETE FROM activity_logs")
+        conn.execute("DELETE FROM pomodoro_sessions")
     conn.close()
     return {"message": "All activity telemetry logs reset successfully"}
 
@@ -303,7 +491,7 @@ async def privacy_notice():
 async def export_personal_telemetry(auth: bool = Depends(verify_admin)):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, app_name, window_title, status, timestamp FROM activity_logs ORDER BY timestamp ASC")
+    cursor.execute("SELECT id, app_name, window_title, status, COALESCE(category, 'General') as category, timestamp FROM activity_logs ORDER BY timestamp ASC")
     rows = cursor.fetchall()
     conn.close()
 

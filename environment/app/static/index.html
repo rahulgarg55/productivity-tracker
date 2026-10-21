@@ -1,104 +1,909 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Productivity Tracker</title>
+    <title>Productivity Tracker — Enterprise Focus Intelligence & Telemetry</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        },
+                        surface: {
+                            900: '#0b0f19',
+                            800: '#111827',
+                            700: '#1f2937',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: #f8fafc;
-            min-height: 100vh;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #080c14;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: #f1f5f9;
         }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .glass-panel-glow {
+            box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.4);
+            border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.6);
+        }
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
     </style>
 </head>
-<body class="p-8">
+<body class="min-h-screen text-slate-200 antialiased selection:bg-emerald-500 selection:text-white">
 
-    <div class="max-w-4xl mx-auto">
-        <header class="mb-10 text-center">
-            <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 mb-2">
-                Productivity Tracker
-            </h1>
-            <p class="text-slate-400">Real-time system activity monitoring</p>
-        </header>
-
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-            <div class="glass-card rounded-2xl p-6 flex flex-col items-center justify-center">
-                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Total Logs</h3>
-                <span id="total-logs" class="text-5xl font-bold text-white">0</span>
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg font-bold tracking-tight text-white">ProductivityFlow</span>
+                        <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Enterprise v2.2</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Productivity Tracker & Work Telemetry Engine</p>
+                </div>
             </div>
+
+            <!-- Ingestion Heartbeat & Actions -->
+            <div class="flex items-center gap-4">
+                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="text-slate-300 font-medium" id="telemetry-status">Ingestion Live</span>
+                    <span class="text-slate-500">•</span>
+                    <span class="text-slate-400 mono" id="last-ping">Just now</span>
+                </div>
+
+                <a href="/docs" target="_blank" class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded-lg border border-slate-800 transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    API Docs
+                </a>
+
+                <button onclick="openPrivacyModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded-lg border border-slate-800 transition-colors">
+                    <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    GDPR Notice
+                </button>
+
+                <a href="https://github.com/rahulgarg55/productivity-tracker" target="_blank" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors" title="GitHub Repository">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Top Hero & Focus Summary Banner -->
+        <div class="glass-panel rounded-2xl p-6 sm:p-8 relative overflow-hidden">
+            <div class="absolute -right-16 -top-16 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -left-16 -bottom-16 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
             
-            <div class="glass-card rounded-2xl p-6 flex flex-col items-center justify-center">
-                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Productivity Score</h3>
-                <span id="productivity-score" class="text-5xl font-bold text-emerald-400">0%</span>
-            </div>
-            
-            <div class="glass-card rounded-2xl p-6 flex flex-col items-center justify-center">
-                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Distracted</h3>
-                <span id="distracted-count" class="text-5xl font-bold text-rose-400">0</span>
-            </div>
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-2">
+                        Productivity Tracker <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">HQ</span>
+                    </h1>
+                    <p class="text-slate-400 text-sm max-w-2xl leading-relaxed">
+                        Continuous workstation telemetry, automated task classification, and Pomodoro focus pacing. Monitoring active engineering processes with zero covert keylogging.
+                    </p>
+                </div>
 
-            <div class="glass-card rounded-2xl p-6 flex flex-col items-center justify-center">
-                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Idle</h3>
-                <span id="idle-count" class="text-5xl font-bold text-amber-400">0</span>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button onclick="triggerGDPRExport()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900/90 hover:bg-slate-800 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700/60 shadow-sm transition-all hover:scale-[1.02]">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Export Telemetry (JSON)
+                    </button>
+                    <button onclick="confirmResetStats()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 transition-all hover:scale-[1.02]">
+                        <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        Clear History
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div class="glass-card rounded-2xl p-8 text-center mb-6">
-            <h2 class="text-2xl font-semibold mb-4">Latest Activity</h2>
-            <div id="activity-status" class="inline-block px-4 py-2 rounded-full text-sm font-bold bg-slate-800 text-slate-300">
-                Waiting for data...
+        <!-- Metric KPI Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <!-- 1. Productivity Score -->
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800 hover:border-slate-700 transition-all group">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Productivity Score</span>
+                    <span id="score-badge" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Optimal</span>
+                </div>
+                <div class="flex items-baseline gap-2 mb-2">
+                    <span id="productivity-score" class="text-4xl font-extrabold text-emerald-400 mono">0.0%</span>
+                </div>
+                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div id="score-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full transition-all duration-700" style="width: 0%"></div>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">Calculated from total active task telemetry</p>
+            </div>
+
+            <!-- 2. Productive Events -->
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800 hover:border-slate-700 transition-all">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Productive Tasks</span>
+                    <div class="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="productive-count" class="text-4xl font-extrabold text-white mono">0</span>
+                    <span class="text-xs text-slate-400">events</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">IDE, Terminal, GitHub, Notion, Postman</p>
+            </div>
+
+            <!-- 3. Distracted Interceptions -->
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800 hover:border-slate-700 transition-all">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Distracted Logs</span>
+                    <div class="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </div>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="distracted-count" class="text-4xl font-extrabold text-rose-400 mono">0</span>
+                    <span class="text-xs text-slate-400">events</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">Social media, video streaming, gaming</p>
+            </div>
+
+            <!-- 4. Total Telemetry & Idle -->
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800 hover:border-slate-700 transition-all">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Telemetry</span>
+                    <div class="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    </div>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="total-logs" class="text-4xl font-extrabold text-white mono">0</span>
+                    <span class="text-xs text-amber-400">(<span id="idle-count" class="mono">0</span> idle)</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">Real-time synchronized records</p>
             </div>
         </div>
 
-        <div class="text-center">
-            <button onclick="resetStats()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-6 rounded-full transition-colors">
-                Clear All History
-            </button>
+        <!-- Interactive Pomodoro Focus Studio & Telemetry Ingestion Simulator -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left: Pomodoro Studio & Quick Simulator (5 Cols) -->
+            <div class="lg:col-span-5 space-y-6">
+                
+                <!-- Pomodoro Focus Station -->
+                <div class="glass-panel rounded-2xl p-6 border border-slate-800 relative">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base font-bold text-white">Pomodoro Deep Focus</span>
+                            <span class="text-xs text-amber-400 font-semibold flex items-center gap-1">
+                                🔥 <span id="pomo-streak">0</span> Today
+                            </span>
+                        </div>
+                        <button onclick="toggleAudioChime()" id="audio-toggle-btn" class="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-xs flex items-center gap-1" title="Toggle audio alert chime">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                            <span id="audio-label">Sound On</span>
+                        </button>
+                    </div>
+
+                    <!-- Mode Selectors -->
+                    <div class="flex rounded-xl bg-slate-900/90 p-1 border border-slate-800 mb-6">
+                        <button onclick="setPomoMode('focus')" id="btn-mode-focus" class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 text-slate-950 shadow-sm transition-all">
+                            Focus (25m)
+                        </button>
+                        <button onclick="setPomoMode('short_break')" id="btn-mode-short" class="flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition-all">
+                            Short (5m)
+                        </button>
+                        <button onclick="setPomoMode('long_break')" id="btn-mode-long" class="flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition-all">
+                            Long (15m)
+                        </button>
+                    </div>
+
+                    <!-- Digital Timer Display -->
+                    <div class="text-center py-4">
+                        <div class="inline-block relative">
+                            <span id="timer-display" class="text-6xl sm:text-7xl font-extrabold mono text-white tracking-tight drop-shadow-md">
+                                25:00
+                            </span>
+                            <div class="text-xs uppercase tracking-widest text-slate-500 mt-2 font-medium" id="timer-task-label">
+                                Engineering Focus Sprint
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="flex items-center justify-center gap-3 mt-4">
+                        <button onclick="togglePomoTimer()" id="pomo-start-btn" class="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-2">
+                            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            <span id="start-btn-label">Start Sprint</span>
+                        </button>
+                        <button onclick="resetPomoTimer()" class="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-colors" title="Reset Timer">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Telemetry Simulation Station -->
+                <div class="glass-panel rounded-2xl p-6 border border-slate-800">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-bold text-white flex items-center gap-2">
+                            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            Interactive Telemetry Simulator
+                        </span>
+                        <span class="text-[10px] uppercase font-semibold text-slate-500">Demo Testing</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-4">
+                        Simulate background client window capture to see live categorization and graph updates:
+                    </p>
+
+                    <!-- Quick Simulation Chips -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button onclick="simulateActivity('Code.exe', 'productivity-tracker - main.py')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-medium text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/40 transition-all">
+                            💻 VS Code (Dev)
+                        </button>
+                        <button onclick="simulateActivity('Figma.exe', 'Productivity Tracker UI Mockup')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-medium text-purple-400 border border-purple-500/20 hover:border-purple-500/40 transition-all">
+                            🎨 Figma (Design)
+                        </button>
+                        <button onclick="simulateActivity('Slack.exe', '#engineering-releases')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-medium text-blue-400 border border-blue-500/20 hover:border-blue-500/40 transition-all">
+                            💬 Slack (Team)
+                        </button>
+                        <button onclick="simulateActivity('chrome.exe', 'YouTube - Lo-Fi Chill Beats')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-medium text-rose-400 border border-rose-500/20 hover:border-rose-500/40 transition-all">
+                            📺 YouTube (Leisure)
+                        </button>
+                        <button onclick="simulateActivity('ScreenSaver.exe', 'System Lock Idle')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-medium text-amber-400 border border-amber-500/20 hover:border-amber-500/40 transition-all">
+                            💤 Lock (Idle)
+                        </button>
+                    </div>
+
+                    <!-- Custom Simulation Form -->
+                    <form onsubmit="handleCustomSimulate(event)" class="space-y-3 pt-3 border-t border-slate-800">
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="text" id="sim-app" placeholder="App (e.g. Terminal)" required class="w-full px-3 py-1.5 bg-slate-900/90 text-xs rounded-lg border border-slate-700/60 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                            <input type="text" id="sim-title" placeholder="Window Title (e.g. bash git push)" required class="w-full px-3 py-1.5 bg-slate-900/90 text-xs rounded-lg border border-slate-700/60 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-600/50 transition-colors flex items-center justify-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            Inject Custom Telemetry Event
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right: Interactive Visual Analytics & Charts (7 Cols) -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- Chart Row: Doughnut + Category Breakdown -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- 1. Doughnut Chart -->
+                    <div class="glass-panel rounded-2xl p-5 border border-slate-800 flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Activity Split</span>
+                            <span class="text-[10px] text-slate-500">3-State Telemetry</span>
+                        </div>
+                        <div class="relative h-48 flex items-center justify-center">
+                            <canvas id="splitChart"></canvas>
+                        </div>
+                        <div class="grid grid-cols-3 text-center pt-3 border-t border-slate-800/80 text-[11px]">
+                            <div><span class="text-emerald-400 font-bold block" id="split-prod">0%</span>Productive</div>
+                            <div><span class="text-rose-400 font-bold block" id="split-dist">0%</span>Distracted</div>
+                            <div><span class="text-amber-400 font-bold block" id="split-idle">0%</span>Idle</div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Category Bar Chart -->
+                    <div class="glass-panel rounded-2xl p-5 border border-slate-800 flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">By Domain Category</span>
+                            <span class="text-[10px] text-slate-500">Dev, Design, Media</span>
+                        </div>
+                        <div class="relative h-48 flex items-center justify-center">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                        <p class="text-[10px] text-slate-500 text-center pt-3 border-t border-slate-800/80">
+                            Automatic contextual regex classification
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Top Applications Leaderboard -->
+                <div class="glass-panel rounded-2xl p-5 border border-slate-800">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Top Detected Applications</span>
+                        <span class="text-[10px] text-slate-500">Ranked by duration</span>
+                    </div>
+                    <div id="top-apps-list" class="space-y-2.5">
+                        <div class="text-xs text-slate-500 py-3 text-center">Loading application telemetry...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-Time Activity Telemetry Stream Table -->
+        <div class="glass-panel rounded-2xl p-6 border border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <span>Live Activity Feed</span>
+                        <span id="table-total-badge" class="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-800 text-slate-400">0 records</span>
+                    </h2>
+                    <p class="text-xs text-slate-400">Recent process & window title captures from desktop companion</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- Status Filter Tabs -->
+                    <div class="flex rounded-lg bg-slate-900 p-1 border border-slate-800 text-xs">
+                        <button onclick="setFilter('all')" id="filter-all" class="px-2.5 py-1 rounded-md font-semibold bg-emerald-500 text-slate-950">All</button>
+                        <button onclick="setFilter('productive')" id="filter-productive" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white">Productive</button>
+                        <button onclick="setFilter('distracted')" id="filter-distracted" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white">Distracted</button>
+                        <button onclick="setFilter('idle')" id="filter-idle" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white">Idle</button>
+                    </div>
+
+                    <button onclick="fetchStatsAndActivities()" class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-colors" title="Refresh Table">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-slate-400 font-medium">
+                            <th class="pb-3 pl-2">ID</th>
+                            <th class="pb-3">Application</th>
+                            <th class="pb-3">Window Title</th>
+                            <th class="pb-3">Classification</th>
+                            <th class="pb-3">Category</th>
+                            <th class="pb-3">Timestamp</th>
+                            <th class="pb-3 pr-2 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activity-table-body" class="divide-y divide-slate-800/60 font-mono text-slate-300">
+                        <tr>
+                            <td colspan="7" class="py-8 text-center text-slate-500 font-sans">
+                                Loading real-time telemetry stream...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 border-t border-slate-800/80 bg-slate-950 py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>ProductivityFlow Enterprise Activity Telemetry v2.2.0</span>
+                <span>•</span>
+                <span>Designed & Engineered by <strong class="text-slate-300">Rahul Garg</strong></span>
+            </div>
+            <div class="flex items-center gap-4">
+                <span>GDPR Article 15/17 Compliant</span>
+                <span>•</span>
+                <a href="/docs" target="_blank" class="text-slate-400 hover:text-emerald-400 transition-colors">FastAPI Interactive Docs</a>
+                <span>•</span>
+                <a href="https://github.com/rahulgarg55/productivity-tracker" target="_blank" class="text-slate-400 hover:text-white transition-colors">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Privacy Notice Modal -->
+    <div id="privacy-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="glass-panel rounded-2xl max-w-lg w-full p-6 border border-slate-700/80 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    GDPR Privacy & Telemetry Governance
+                </h3>
+                <button onclick="closePrivacyModal()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <div class="text-xs text-slate-300 space-y-3 leading-relaxed">
+                <p><strong>Transparency Guarantee:</strong> This application captures active foreground application names and window titles strictly for focus scoring. No keyboard logging, screen scraping, or covert recording is executed.</p>
+                <p><strong>Retention Policy:</strong> Telemetry records are stored locally in SQLite with WAL mode and automatically subject to a 30-day data retention cycle.</p>
+                <p><strong>GDPR Article 15 (Right to Access):</strong> You can export full JSON activity logs at any time using the <em>Export Telemetry</em> button.</p>
+                <p><strong>GDPR Article 17 (Right to Erasure):</strong> You can clear all recorded history using the <em>Clear History</em> action.</p>
+            </div>
+            <div class="pt-2 flex justify-end">
+                <button onclick="closePrivacyModal()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg transition-colors">
+                    Close Notice
+                </button>
+            </div>
         </div>
     </div>
 
+    <!-- Application Script -->
     <script>
-        async function fetchStats() {
+        // State variables
+        let currentFilter = 'all';
+        let splitChartInstance = null;
+        let categoryChartInstance = null;
+        let audioEnabled = true;
+
+        // Pomodoro State
+        let pomoMinutes = 25;
+        let pomoSeconds = 0;
+        let pomoInterval = null;
+        let pomoRunning = false;
+        let currentPomoMode = 'focus';
+
+        // Web Audio Synthesizer chime
+        function playChime() {
+            if (!audioEnabled) return;
             try {
-                const response = await fetch('/api/stats');
-                const data = await response.json();
-                
-                document.getElementById('total-logs').innerText = data.total_logs;
-                document.getElementById('productivity-score').innerText = data.productivity_score.toFixed(1) + '%';
-                document.getElementById('distracted-count').innerText = data.distracted_count || 0;
-                document.getElementById('idle-count').innerText = data.idle_count || 0;
-                
-                const statusEl = document.getElementById('activity-status');
-                if (data.productive_count > data.distracted_count) {
-                    statusEl.innerText = "Highly Productive Session";
-                    statusEl.className = "inline-block px-4 py-2 rounded-full text-sm font-bold bg-emerald-900/50 text-emerald-400 border border-emerald-500/30";
-                } else if (data.total_logs > 0) {
-                    statusEl.innerText = "High Distraction Warning";
-                    statusEl.className = "inline-block px-4 py-2 rounded-full text-sm font-bold bg-rose-900/50 text-rose-400 border border-rose-500/30";
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+                osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3); // A5
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.8);
+            } catch (e) {
+                console.warn("Audio play prevented:", e);
+            }
+        }
+
+        function toggleAudioChime() {
+            audioEnabled = !audioEnabled;
+            document.getElementById('audio-label').innerText = audioEnabled ? 'Sound On' : 'Muted';
+            document.getElementById('audio-toggle-btn').className = audioEnabled 
+                ? 'p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-xs flex items-center gap-1'
+                : 'p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-1';
+        }
+
+        // Pomodoro Functions
+        function setPomoMode(mode) {
+            currentPomoMode = mode;
+            clearInterval(pomoInterval);
+            pomoRunning = false;
+            document.getElementById('start-btn-label').innerText = 'Start Sprint';
+            document.getElementById('pomo-start-btn').className = "px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-2";
+
+            const btnFocus = document.getElementById('btn-mode-focus');
+            const btnShort = document.getElementById('btn-mode-short');
+            const btnLong = document.getElementById('btn-mode-long');
+            const taskLabel = document.getElementById('timer-task-label');
+
+            [btnFocus, btnShort, btnLong].forEach(b => {
+                b.className = "flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition-all";
+            });
+
+            if (mode === 'focus') {
+                pomoMinutes = 25;
+                btnFocus.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 text-slate-950 shadow-sm transition-all";
+                taskLabel.innerText = "Engineering Focus Sprint";
+            } else if (mode === 'short_break') {
+                pomoMinutes = 5;
+                btnShort.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg bg-blue-500 text-slate-950 shadow-sm transition-all";
+                taskLabel.innerText = "Rest & Hydrate Break";
+            } else {
+                pomoMinutes = 15;
+                btnLong.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg bg-purple-500 text-slate-950 shadow-sm transition-all";
+                taskLabel.innerText = "Deep Restoration Break";
+            }
+            pomoSeconds = 0;
+            updateTimerDisplay();
+        }
+
+        function updateTimerDisplay() {
+            const m = String(pomoMinutes).padStart(2, '0');
+            const s = String(pomoSeconds).padStart(2, '0');
+            document.getElementById('timer-display').innerText = `${m}:${s}`;
+        }
+
+        function togglePomoTimer() {
+            if (pomoRunning) {
+                clearInterval(pomoInterval);
+                pomoRunning = false;
+                document.getElementById('start-btn-label').innerText = 'Resume';
+            } else {
+                pomoRunning = true;
+                document.getElementById('start-btn-label').innerText = 'Pause';
+                pomoInterval = setInterval(async () => {
+                    if (pomoSeconds === 0) {
+                        if (pomoMinutes === 0) {
+                            clearInterval(pomoInterval);
+                            pomoRunning = false;
+                            playChime();
+                            document.getElementById('start-btn-label').innerText = 'Completed!';
+                            
+                            // Record completed session to backend
+                            if (currentPomoMode === 'focus') {
+                                try {
+                                    await fetch('/api/pomodoro/sessions', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            session_type: 'focus',
+                                            duration_minutes: 25,
+                                            tag: 'General Engineering'
+                                        })
+                                    });
+                                    fetchPomodoroStats();
+                                } catch (e) { console.error(e); }
+                            }
+                            return;
+                        }
+                        pomoMinutes--;
+                        pomoSeconds = 59;
+                    } else {
+                        pomoSeconds--;
+                    }
+                    updateTimerDisplay();
+                }, 1000);
+            }
+        }
+
+        function resetPomoTimer() {
+            setPomoMode(currentPomoMode);
+        }
+
+        async function fetchPomodoroStats() {
+            try {
+                const res = await fetch('/api/pomodoro/stats');
+                const data = await res.json();
+                document.getElementById('pomo-streak').innerText = data.today_sessions || 0;
+            } catch (e) {}
+        }
+
+        // Charts Initialization
+        function initCharts() {
+            const splitCtx = document.getElementById('splitChart').getContext('2d');
+            splitChartInstance = new Chart(splitCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Productive', 'Distracted', 'Idle'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#10b981', '#f43f5e', '#f59e0b'],
+                        borderColor: '#111827',
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    cutout: '72%'
                 }
+            });
+
+            const catCtx = document.getElementById('categoryChart').getContext('2d');
+            categoryChartInstance = new Chart(catCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Dev', 'Design', 'Team', 'Docs', 'Media'],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0],
+                        backgroundColor: '#10b981',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 }, stepSize: 1 } }
+                    }
+                }
+            });
+        }
+
+        // Fetch Main Statistics & Telemetry
+        async function fetchStatsAndActivities() {
+            try {
+                // 1. Stats
+                const statsRes = await fetch('/api/stats');
+                const stats = await statsRes.json();
+
+                const totalLogs = stats.total_logs || 0;
+                const prod = stats.productive_count || 0;
+                const dist = stats.distracted_count || 0;
+                const idle = stats.idle_count || 0;
+                const score = stats.productivity_score || 0;
+
+                document.getElementById('total-logs').innerText = totalLogs;
+                document.getElementById('productive-count').innerText = prod;
+                document.getElementById('distracted-count').innerText = dist;
+                document.getElementById('idle-count').innerText = idle;
+                document.getElementById('productivity-score').innerText = score.toFixed(1) + '%';
+                document.getElementById('score-bar').style.width = Math.min(score, 100) + '%';
+
+                const scoreBadge = document.getElementById('score-badge');
+                if (score >= 70) {
+                    scoreBadge.className = "px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                    scoreBadge.innerText = "High Focus";
+                } else if (score >= 40) {
+                    scoreBadge.className = "px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20";
+                    scoreBadge.innerText = "Moderate";
+                } else {
+                    scoreBadge.className = "px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                    scoreBadge.innerText = "Distracted";
+                }
+
+                // Update Doughnut Chart
+                if (splitChartInstance) {
+                    splitChartInstance.data.datasets[0].data = [prod, dist, idle];
+                    splitChartInstance.update();
+
+                    const pProd = totalLogs > 0 ? ((prod / totalLogs) * 100).toFixed(0) : 0;
+                    const pDist = totalLogs > 0 ? ((dist / totalLogs) * 100).toFixed(0) : 0;
+                    const pIdle = totalLogs > 0 ? ((idle / totalLogs) * 100).toFixed(0) : 0;
+
+                    document.getElementById('split-prod').innerText = `${pProd}%`;
+                    document.getElementById('split-dist').innerText = `${pDist}%`;
+                    document.getElementById('split-idle').innerText = `${pIdle}%`;
+                }
+
+                // 2. Categories
+                const catRes = await fetch('/api/stats/categories');
+                const catData = await catRes.json();
+                if (categoryChartInstance && catData.categories) {
+                    categoryChartInstance.data.labels = catData.categories.map(c => c.category);
+                    categoryChartInstance.data.datasets[0].data = catData.categories.map(c => c.count);
+                    categoryChartInstance.update();
+                }
+
+                // 3. Top Apps
+                const topRes = await fetch('/api/stats/top-apps');
+                const topData = await topRes.json();
+                renderTopApps(topData.top_apps || []);
+
+                // 4. Activity Table
+                fetchActivities();
+
+                document.getElementById('last-ping').innerText = new Date().toLocaleTimeString();
             } catch (err) {
-                console.error("Failed to load stats", err);
+                console.error("Failed to load statistics:", err);
             }
         }
-        
-        async function resetStats() {
-            if(confirm("Are you sure you want to clear all history?")) {
-                await fetch('/api/stats/reset', { method: 'DELETE' });
-                fetchStats();
+
+        function renderTopApps(apps) {
+            const container = document.getElementById('top-apps-list');
+            if (apps.length === 0) {
+                container.innerHTML = `<div class="text-xs text-slate-500 py-3 text-center">No applications logged yet. Click simulation chips above to test!</div>`;
+                return;
+            }
+
+            container.innerHTML = apps.map(app => {
+                const badgeColor = app.status === 'productive' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                    : app.status === 'idle' ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                    : 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+
+                return `
+                    <div class="flex items-center justify-between p-2 rounded-xl bg-slate-900/60 border border-slate-800 text-xs">
+                        <div class="flex items-center gap-2">
+                            <span class="font-semibold text-slate-200">${escapeHtml(app.app_name)}</span>
+                            <span class="text-[10px] text-slate-500 px-1.5 py-0.5 rounded bg-slate-800">${escapeHtml(app.category)}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeColor}">${app.status}</span>
+                            <span class="mono text-slate-400 font-bold">${app.count} logs</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function fetchActivities() {
+            try {
+                let url = `/api/activities?limit=30`;
+                if (currentFilter !== 'all') {
+                    url += `&status=${currentFilter}`;
+                }
+                const res = await fetch(url);
+                const data = await res.json();
+
+                document.getElementById('table-total-badge').innerText = `${data.total} records`;
+                const tbody = document.getElementById('activity-table-body');
+
+                if (!data.data || data.data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500 font-sans">No activity logs recorded matching "${currentFilter}".</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.data.map(item => {
+                    const statusClass = item.status === 'productive'
+                        ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                        : item.status === 'idle'
+                        ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                        : 'text-rose-400 bg-rose-500/10 border border-rose-500/20';
+
+                    return `
+                        <tr class="hover:bg-slate-800/40 transition-colors">
+                            <td class="py-2.5 pl-2 text-slate-500">#${item.id}</td>
+                            <td class="py-2.5 font-semibold text-slate-200">${escapeHtml(item.app_name)}</td>
+                            <td class="py-2.5 text-slate-400 max-w-xs truncate" title="${escapeHtml(item.window_title)}">${escapeHtml(item.window_title)}</td>
+                            <td class="py-2.5"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${statusClass}">${item.status}</span></td>
+                            <td class="py-2.5 text-slate-400">${escapeHtml(item.category || 'General')}</td>
+                            <td class="py-2.5 text-slate-500 text-[11px]">${escapeHtml(item.timestamp)}</td>
+                            <td class="py-2.5 pr-2 text-right">
+                                <button onclick="deleteLogEntry(${item.id})" class="text-slate-500 hover:text-rose-400 transition-colors" title="Delete log">
+                                    ✕
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error("Failed to load activities:", err);
             }
         }
-        
-        fetchStats();
-        setInterval(fetchStats, 5000);
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            ['all', 'productive', 'distracted', 'idle'].forEach(f => {
+                const btn = document.getElementById(`filter-${f}`);
+                if (f === filter) {
+                    btn.className = "px-2.5 py-1 rounded-md font-semibold bg-emerald-500 text-slate-950";
+                } else {
+                    btn.className = "px-2.5 py-1 rounded-md text-slate-400 hover:text-white";
+                }
+            });
+            fetchActivities();
+        }
+
+        // Live Simulation Actions
+        async function simulateActivity(appName, windowTitle) {
+            try {
+                await fetch('/api/simulate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ app_name: appName, window_title: windowTitle })
+                });
+                fetchStatsAndActivities();
+            } catch (err) {
+                console.error("Simulation failed:", err);
+            }
+        }
+
+        function handleCustomSimulate(e) {
+            e.preventDefault();
+            const app = document.getElementById('sim-app').value.trim();
+            const title = document.getElementById('sim-title').value.trim();
+            if (app && title) {
+                simulateActivity(app, title);
+                document.getElementById('sim-app').value = '';
+                document.getElementById('sim-title').value = '';
+            }
+        }
+
+        async function deleteLogEntry(id) {
+            try {
+                await fetch(`/api/screenshots/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer sys-admin-token-2026' }
+                });
+                fetchStatsAndActivities();
+            } catch (err) {
+                console.error("Failed to delete log entry:", err);
+            }
+        }
+
+        async function confirmResetStats() {
+            if (confirm("Reset all activity telemetry logs and focus history? This action is compliant with GDPR Article 17 Erasure.")) {
+                try {
+                    await fetch('/api/stats/reset', {
+                        method: 'DELETE',
+                        headers: { 'Authorization': 'Bearer sys-admin-token-2026' }
+                    });
+                    fetchStatsAndActivities();
+                    fetchPomodoroStats();
+                } catch (e) {
+                    console.error("Reset failed:", e);
+                }
+            }
+        }
+
+        async function triggerGDPRExport() {
+            try {
+                const res = await fetch('/api/privacy/export', {
+                    headers: { 'Authorization': 'Bearer sys-admin-token-2026' }
+                });
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `productivityflow-telemetry-export-${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert("Failed to export telemetry data.");
+            }
+        }
+
+        function openPrivacyModal() {
+            document.getElementById('privacy-modal').classList.remove('hidden');
+        }
+
+        function closePrivacyModal() {
+            document.getElementById('privacy-modal').classList.add('hidden');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // Initialize upon window load
+        window.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            fetchStatsAndActivities();
+            fetchPomodoroStats();
+            setInterval(fetchStatsAndActivities, 4000);
+        });
     </script>
 </body>
 </html>
